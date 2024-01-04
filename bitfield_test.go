@@ -44,6 +44,25 @@ type TestBitTestCase struct {
 	expectedValue bool      // Expected value of the bit
 }
 
+type InsertUintTestCase struct {
+	name         string
+	bf           *BitField
+	offset       uint
+	size         uint
+	value        uint64
+	expectError  bool
+	expectedBits []byte
+}
+
+type ExtractUintTestCase struct {
+	name          string
+	bf            *BitField
+	offset        uint
+	size          uint
+	expectError   bool
+	expectedValue uint64
+}
+
 // Test cases
 var newTestCases = []NewTestCase{
 	{
@@ -188,6 +207,128 @@ var testBitTestCases = []TestBitTestCase{
 	},
 }
 
+var insertUintTestCases = []InsertUintTestCase{
+	{
+		name: "Insert within range",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000},
+			sz:   16,
+		},
+		offset:       0,
+		size:         8,
+		value:        0b10101010,
+		expectedBits: []byte{0b10101010, 0b00000000},
+	},
+	{
+		name: "Insert with overflow",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000},
+			sz:   16,
+		},
+		offset:      8,
+		size:        10, // This goes beyond the size of BitField
+		value:       0b1111111111,
+		expectError: true,
+	},
+	{
+		name: "Insert zero size",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000},
+			sz:   16,
+		},
+		offset:       5,
+		size:         0,
+		value:        0b1,
+		expectedBits: []byte{0b00000000, 0b00000000},
+	},
+	{
+		name: "Insert at offset",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000},
+			sz:   16,
+		},
+		offset:       4,
+		size:         4,
+		value:        0b1111,
+		expectedBits: []byte{0b11110000, 0b00000000}, // The value 0b1111 starts at the 5th bit (offset 4), LSB-first
+	},
+	{
+		name: "Invalid size greater than 64",
+		bf: &BitField{
+			bits: make([]byte, 16),
+			sz:   128,
+		},
+		offset:      0,
+		size:        65,
+		value:       0xFFFFFFFFFFFFFFFF,
+		expectError: true,
+	},
+	{
+		name: "Insert spanning multiple bytes",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000, 0b00000000, 0b00000000}, // Initial state with 4 bytes
+			sz:   32,
+		},
+		offset:       4,
+		size:         16,                 // 16-bit value
+		value:        0b1010101010101010, // Spanning across multiple bytes
+		expectedBits: []byte{0b10100000, 0b10101010, 0b00001010, 0b00000000},
+	},
+}
+
+var extractUintTestCases = []ExtractUintTestCase{
+	{
+		name: "Extract within range",
+		bf: &BitField{
+			bits: []byte{0b10101010, 0b00000000},
+			sz:   16,
+		},
+		offset:        0,
+		size:          8,
+		expectedValue: 0b10101010,
+	},
+	{
+		name: "Extract with overflow",
+		bf: &BitField{
+			bits: []byte{0b00000000, 0b00000000},
+			sz:   16,
+		},
+		offset:      8,
+		size:        10, // This goes beyond the size of BitField
+		expectError: true,
+	},
+	{
+		name: "Extract zero size",
+		bf: &BitField{
+			bits: []byte{0b10101010, 0b00000000},
+			sz:   16,
+		},
+		offset:        5,
+		size:          0,
+		expectedValue: 0,
+	},
+	{
+		name: "Extract at offset",
+		bf: &BitField{
+			bits: []byte{0b11110000, 0b00000000},
+			sz:   16,
+		},
+		offset:        4,
+		size:          4,
+		expectedValue: 0b1111,
+	},
+	{
+		name: "Extract spanning multiple bytes",
+		bf: &BitField{
+			bits: []byte{0b10100000, 0b10101010, 0b00001010, 0b00000000},
+			sz:   32,
+		},
+		offset:        4,
+		size:          16,
+		expectedValue: 0b1010101010101010,
+	},
+}
+
 func TestNew(t *testing.T) {
 	for _, tc := range newTestCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -272,6 +413,40 @@ func TestTestBit(t *testing.T) {
 				}
 			} else if !tc.expectError && value != tc.expectedValue {
 				t.Errorf("%s: expected value %t, got %t", tc.name, tc.expectedValue, value)
+			}
+		})
+	}
+}
+
+func TestInsertUint(t *testing.T) {
+	for _, tc := range insertUintTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.bf.InsertUint(tc.offset, tc.size, tc.value)
+
+			if (err != nil) != tc.expectError {
+				t.Errorf("InsertUint() error = %v, expectError %v", err, tc.expectError)
+				return
+			}
+
+			if !tc.expectError && !reflect.DeepEqual(tc.bf.bits, tc.expectedBits) {
+				t.Errorf("InsertUint() got %v, want %v", tc.bf.bits, tc.expectedBits)
+			}
+		})
+	}
+}
+
+func TestExtractUint(t *testing.T) {
+	for _, tc := range extractUintTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			value, err := tc.bf.ExtractUint(tc.offset, tc.size)
+
+			if (err != nil) != tc.expectError {
+				t.Errorf("ExtractUint() error = %v, expectError %v", err, tc.expectError)
+				return
+			}
+
+			if !tc.expectError && value != tc.expectedValue {
+				t.Errorf("ExtractUint() got %v, want %v", value, tc.expectedValue)
 			}
 		})
 	}

@@ -2,6 +2,7 @@ package bitfield
 
 import (
 	"errors"
+	"fmt"
 )
 
 // BitField represents a field of bits and provides methods for manipulating bits.
@@ -88,4 +89,62 @@ func (bf *BitField) TestBit(pos uint) (bool, error) {
 
 	// Retrieve the value of the bit by checking if the bit at the bitPosition is set in the byte.
 	return bf.bits[byteIndex]&(1<<bitPosition) != 0, nil
+}
+
+// InsertUint sets a group of bits starting at a specified offset to the given value.
+// The value is interpreted as an LSB-first bit sequence.
+// Parameters:
+// - offset uint: The starting position for setting the bits, in bits (0-based index).
+// - size uint: The number of bits to set.
+// - value uint64: The value to set, interpreted as LSB-first. Only the lowest 'size' bits are used.
+// Returns an error if the operation goes beyond the bounds of the BitField or if size is invalid.
+func (bf *BitField) InsertUint(offset uint, size uint, value uint64) error {
+	// Validate that the operation is within bounds
+	if offset+size > bf.sz || size > 64 {
+		return errors.New("operation out of bounds or size is invalid")
+	}
+
+	for i := uint(0); i < size; i++ {
+		// Calculate the position of the bit to be modified
+		pos := offset + i
+
+		// Determine whether to set or clear the bit based on the corresponding bit in 'value'
+		if (value>>i)&1 == 1 {
+			// Set the bit
+			if err := bf.SetBit(pos); err != nil {
+				return err
+			}
+		} else {
+			// Clear the bit
+			if err := bf.ClearBit(pos); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// ExtractUint retrieves a group of bits starting at a specified offset within the BitField.
+// It returns the bits as a uint64 value with LSB-first order.
+// Parameters:
+// - offset uint: The starting position for retrieving the bits, in bits (0-based index).
+// - size uint: The number of bits to retrieve.
+// Returns the retrieved bits as a uint64 value and an error if the operation goes beyond the bounds of the BitField.
+func (bf *BitField) ExtractUint(offset uint, size uint) (uint64, error) {
+	if offset+size > bf.sz {
+		return 0, fmt.Errorf("range [%d, %d] out of bounds", offset, offset+size)
+	}
+
+	var group uint64
+	for i := uint(0); i < size; i++ {
+		bit, err := bf.TestBit(offset + i)
+		if err != nil {
+			return 0, err
+		}
+		if bit {
+			group |= (1 << i)
+		}
+	}
+	return group, nil
 }
