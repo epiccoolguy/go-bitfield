@@ -1,6 +1,7 @@
 package bitfield
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -47,6 +48,7 @@ type TestBitTestCase struct {
 type InsertUintTestCase struct {
 	name         string
 	bf           *BitField
+	man          BitManipulator // Optional manipulator (mock or nil)
 	offset       uint
 	size         uint
 	value        uint64
@@ -57,10 +59,34 @@ type InsertUintTestCase struct {
 type ExtractUintTestCase struct {
 	name          string
 	bf            *BitField
+	man           BitManipulator // Optional manipulator (mock or nil)
 	offset        uint
 	size          uint
 	expectError   bool
 	expectedValue uint64
+}
+
+// Mock BitManipulator
+type MockBitManipulator struct {
+	SetBitFunc    func(pos uint) error
+	ClearBitFunc  func(pos uint) error
+	ToggleBitFunc func(pos uint) error
+	TestBitFunc   func(pos uint) (bool, error)
+}
+
+func (m *MockBitManipulator) SetBit(pos uint) error {
+	return m.SetBitFunc(pos)
+}
+
+func (m *MockBitManipulator) ClearBit(pos uint) error {
+	return m.ClearBitFunc(pos)
+}
+
+func (m *MockBitManipulator) ToggleBit(pos uint) error {
+	return m.ToggleBitFunc(pos)
+}
+func (m *MockBitManipulator) TestBit(pos uint) (bool, error) {
+	return m.TestBitFunc(pos)
 }
 
 // Test cases
@@ -260,7 +286,7 @@ var insertUintTestCases = []InsertUintTestCase{
 		},
 		offset:      0,
 		size:        65,
-		value:       0xFFFFFFFFFFFFFFFF,
+		value:       0b1111111111111111111111111111111111111111111111111111111111111111,
 		expectError: true,
 	},
 	{
@@ -273,6 +299,38 @@ var insertUintTestCases = []InsertUintTestCase{
 		size:         16,                 // 16-bit value
 		value:        0b1010101010101010, // Spanning across multiple bytes
 		expectedBits: []byte{0b10100000, 0b10101010, 0b00001010, 0b00000000},
+	},
+	{
+		name: "Mock error with SetBit",
+		bf: &BitField{
+			bits: make([]byte, 1),
+			sz:   8,
+		},
+		man: &MockBitManipulator{
+			SetBitFunc: func(pos uint) error {
+				return errors.New("mock error")
+			},
+		},
+		offset:      0,
+		size:        8,
+		value:       0b01010101,
+		expectError: true,
+	},
+	{
+		name: "Mock error with ClearBit",
+		bf: &BitField{
+			bits: make([]byte, 1),
+			sz:   8,
+		},
+		man: &MockBitManipulator{
+			ClearBitFunc: func(pos uint) error {
+				return errors.New("mock error")
+			},
+		},
+		offset:      0,
+		size:        8,
+		value:       0b10101010,
+		expectError: true,
 	},
 }
 
@@ -326,6 +384,21 @@ var extractUintTestCases = []ExtractUintTestCase{
 		offset:        4,
 		size:          16,
 		expectedValue: 0b1010101010101010,
+	},
+	{
+		name: "Mock error with TestBit",
+		bf: &BitField{
+			bits: make([]byte, 1),
+			sz:   8,
+		},
+		man: &MockBitManipulator{
+			TestBitFunc: func(pos uint) (bool, error) {
+				return false, errors.New("mock error")
+			},
+		},
+		offset:      0,
+		size:        8,
+		expectError: true,
 	},
 }
 
@@ -420,8 +493,14 @@ func TestTestBit(t *testing.T) {
 
 func TestInsertUint(t *testing.T) {
 	for _, tc := range insertUintTestCases {
+		// Use the provided manipulator if it's not nil, else use the BitField itself
+		man := tc.man
+		if man == nil {
+			man = tc.bf
+		}
+
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.bf.InsertUint(tc.offset, tc.size, tc.value)
+			err := tc.bf.InsertUint(man, tc.offset, tc.size, tc.value)
 
 			if (err != nil) != tc.expectError {
 				t.Errorf("InsertUint() error = %v, expectError %v", err, tc.expectError)
@@ -437,8 +516,14 @@ func TestInsertUint(t *testing.T) {
 
 func TestExtractUint(t *testing.T) {
 	for _, tc := range extractUintTestCases {
+		// Use the provided manipulator if it's not nil, else use the BitField itself
+		man := tc.man
+		if man == nil {
+			man = tc.bf
+		}
+
 		t.Run(tc.name, func(t *testing.T) {
-			value, err := tc.bf.ExtractUint(tc.offset, tc.size)
+			value, err := tc.bf.ExtractUint(man, tc.offset, tc.size)
 
 			if (err != nil) != tc.expectError {
 				t.Errorf("ExtractUint() error = %v, expectError %v", err, tc.expectError)

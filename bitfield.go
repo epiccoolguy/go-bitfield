@@ -11,6 +11,16 @@ type BitField struct {
 	sz   uint   // The size of the bit field in bits.
 }
 
+type BitManipulator interface {
+	SetBit(pos uint) error
+	ClearBit(pos uint) error
+	ToggleBit(pos uint) error
+	TestBit(pos uint) (bool, error)
+}
+
+// Compile-time check to ensure BitField implements BitManipulator
+var _ BitManipulator = &BitField{}
+
 // New creates a new BitField with the specified number of bits.
 // Parameters:
 // - n uint: The size of the bit field in bits.
@@ -98,7 +108,7 @@ func (bf *BitField) TestBit(pos uint) (bool, error) {
 // - size uint: The number of bits to set.
 // - value uint64: The value to set, interpreted as LSB-first. Only the lowest 'size' bits are used.
 // Returns an error if the operation goes beyond the bounds of the BitField or if size is invalid.
-func (bf *BitField) InsertUint(offset uint, size uint, value uint64) error {
+func (bf *BitField) InsertUint(man BitManipulator, offset, size uint, value uint64) error {
 	// Validate that the operation is within bounds
 	if offset+size > bf.sz || size > 64 {
 		return errors.New("operation out of bounds or size is invalid")
@@ -111,12 +121,12 @@ func (bf *BitField) InsertUint(offset uint, size uint, value uint64) error {
 		// Determine whether to set or clear the bit based on the corresponding bit in 'value'
 		if (value>>i)&1 == 1 {
 			// Set the bit
-			if err := bf.SetBit(pos); err != nil {
+			if err := man.SetBit(pos); err != nil {
 				return err
 			}
 		} else {
 			// Clear the bit
-			if err := bf.ClearBit(pos); err != nil {
+			if err := man.ClearBit(pos); err != nil {
 				return err
 			}
 		}
@@ -131,14 +141,14 @@ func (bf *BitField) InsertUint(offset uint, size uint, value uint64) error {
 // - offset uint: The starting position for retrieving the bits, in bits (0-based index).
 // - size uint: The number of bits to retrieve.
 // Returns the retrieved bits as a uint64 value and an error if the operation goes beyond the bounds of the BitField.
-func (bf *BitField) ExtractUint(offset uint, size uint) (uint64, error) {
+func (bf *BitField) ExtractUint(man BitManipulator, offset, size uint) (uint64, error) {
 	if offset+size > bf.sz {
 		return 0, fmt.Errorf("range [%d, %d] out of bounds", offset, offset+size)
 	}
 
 	var group uint64
 	for i := uint(0); i < size; i++ {
-		bit, err := bf.TestBit(offset + i)
+		bit, err := man.TestBit(offset + i)
 		if err != nil {
 			return 0, err
 		}
