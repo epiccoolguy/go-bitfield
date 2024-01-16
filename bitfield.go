@@ -33,6 +33,14 @@ func New(n uint) *BitField {
 	}
 }
 
+// Bytes creates a copy of the underlying bits slice.
+// Returns the newly created copy
+func (bf *BitField) Bytes() []byte {
+	copiedBytes := make([]byte, len(bf.bits))
+	copy(copiedBytes, bf.bits)
+	return copiedBytes
+}
+
 // calculateBitPosition calculates and returns the byte index and bit position within the byte
 // for a specified bit position in the BitField.
 // Parameters:

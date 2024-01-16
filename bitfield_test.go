@@ -13,6 +13,12 @@ type NewTestCase struct {
 	expectedLen int    // Expected length of the underlying byte slice
 }
 
+type BytesTestCase struct {
+	name         string    // Name of the test case
+	bf           *BitField // Initial BitField for the test
+	expectedBits []byte    // Expected byte slice after copying the bits
+}
+
 type SetBitTestCase struct {
 	name         string    // Name of the test case
 	bf           *BitField // Initial BitField for the test
@@ -110,6 +116,22 @@ var newTestCases = []NewTestCase{
 		name:        "Large size",
 		n:           1024,
 		expectedLen: 128, // 1024 bits = 128 bytes
+	},
+}
+
+var bytesTestCases = []BytesTestCase{
+	{
+		name:         "Empty BitField",
+		bf:           New(0),
+		expectedBits: []byte{},
+	},
+	{
+		name: "BitField with set bits",
+		bf: &BitField{
+			bits: []byte{0b11111111, 0b11111111},
+			sz:   16,
+		},
+		expectedBits: []byte{0b11111111, 0b11111111},
 	},
 }
 
@@ -411,6 +433,18 @@ func TestNew(t *testing.T) {
 			}
 			if bf.sz != tc.n {
 				t.Errorf("%s: expected size %d, got %d", tc.name, tc.n, bf.sz)
+			}
+		})
+	}
+}
+
+func TestBytes(t *testing.T) {
+	for _, tc := range bytesTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.bf.Bytes()
+			// Compare the resulting byte slice with the expected slice, if no error is expected
+			if !reflect.DeepEqual(c, tc.expectedBits) {
+				t.Errorf("SetBit() got %v, want %v", tc.bf.bits, tc.expectedBits)
 			}
 		})
 	}
