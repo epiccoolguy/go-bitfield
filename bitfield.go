@@ -41,6 +41,14 @@ func (bf *BitField) Bytes() []byte {
 	return copiedBytes
 }
 
+// FromBytes creates a new BitField from a slice of bytes.
+// Returns a pointer to the newly created BitField.
+func FromBytes(bytes []byte) *BitField {
+	bf := New(uint(len(bytes) * 8))
+	copy(bf.bits, bytes)
+	return bf
+}
+
 // calculateBitPosition calculates and returns the byte index and bit position within the byte
 // for a specified bit position in the BitField.
 // Parameters:
