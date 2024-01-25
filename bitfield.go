@@ -21,10 +21,7 @@ type BitManipulator interface {
 // Compile-time check to ensure BitField implements BitManipulator
 var _ BitManipulator = &BitField{}
 
-// New creates a new BitField with the specified number of bits.
-// Parameters:
-// - n uint: The size of the bit field in bits.
-// Returns a pointer to the newly created BitField.
+// Deprecated: Use go.loafoe.dev/bitfield/v2.LittleEndian.New instead.
 func New(n uint) *BitField {
 	size := (n + 7) / 8 // Calculate the number of bytes needed to store 'n' bits.
 	return &BitField{
@@ -41,8 +38,7 @@ func (bf *BitField) Bytes() []byte {
 	return copiedBytes
 }
 
-// FromBytes creates a new BitField from a slice of bytes.
-// Returns a pointer to the newly created BitField.
+// Deprecated: Use go.loafoe.dev/bitfield/v2.LittleEndian.FromBytes instead.
 func FromBytes(bytes []byte) *BitField {
 	bf := New(uint(len(bytes) * 8))
 	copy(bf.bits, bytes)
