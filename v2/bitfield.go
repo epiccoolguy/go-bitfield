@@ -5,6 +5,7 @@ type BitField struct {
 	data        []byte         // The underlying byte slice that stores the bits.
 	size        uint64         // The size of the bit field in bits.
 	manipulator BitManipulator // An interface that provides methods for bit manipulation.
+	err         error          // An error that is set when a bit manipulation method fails.
 }
 
 // BitManipulator is an interface that defines methods for manipulating bits in a BitField.
@@ -34,16 +35,30 @@ func (bf *BitField) Size() uint64 {
 	return bf.size
 }
 
+// Error returns the error set by the last failing bit manipulation method.
+func (bf *BitField) Error() error {
+	return bf.err
+}
+
 func (bf *BitField) SetBit(pos uint64) error {
-	return bf.manipulator.SetBit(bf, pos)
+	if bf.err == nil {
+		bf.err = bf.manipulator.SetBit(bf, pos)
+	}
+	return bf.err
 }
 
 func (bf *BitField) ClearBit(pos uint64) error {
-	return bf.manipulator.ClearBit(bf, pos)
+	if bf.err == nil {
+		bf.err = bf.manipulator.ClearBit(bf, pos)
+	}
+	return bf.err
 }
 
 func (bf *BitField) ToggleBit(pos uint64) error {
-	return bf.manipulator.ToggleBit(bf, pos)
+	if bf.err == nil {
+		bf.err = bf.manipulator.ToggleBit(bf, pos)
+	}
+	return bf.err
 }
 
 func (bf *BitField) TestBit(pos uint64) (bool, error) {
@@ -51,7 +66,10 @@ func (bf *BitField) TestBit(pos uint64) (bool, error) {
 }
 
 func (bf *BitField) InsertUint64(offset, size, value uint64) error {
-	return bf.manipulator.InsertUint64(bf, offset, size, value)
+	if bf.err == nil {
+		bf.err = bf.manipulator.InsertUint64(bf, offset, size, value)
+	}
+	return bf.err
 }
 
 func (bf *BitField) ExtractUint64(offset, size uint64) (uint64, error) {

@@ -176,3 +176,29 @@ func TestSize(t *testing.T) {
 		})
 	}
 }
+
+func TestError(t *testing.T) {
+	var name string = "Error between mutations"
+	var bfSize uint64 = 32
+	var val uint64 = 0b1111111111111111 // 16 bits
+	var size uint64 = 16
+	var offsetA uint64 = 0
+	var offsetB uint64 = 33 // Out of bounds
+	var offsetC uint64 = 16
+	var expectedBitsA []byte = []byte{0b11111111, 0b11111111, 0b00000000, 0b00000000}
+
+	bf := BigEndian.New(bfSize)
+
+	bf.InsertUint64(offsetA, size, val)
+	bf.ToggleBit(offsetB)
+	bf.InsertUint64(offsetC, size, val)
+
+	if bf.Error() == nil {
+		t.Errorf("%s: expected an error, but got none", name)
+	}
+
+	// Only the first insert should have succeeded, with subsequent operations being no-ops after toggle failing
+	if !reflect.DeepEqual(bf.data, expectedBitsA) {
+		t.Errorf("%s: expected %v, got %v", name, expectedBitsA, bf.data)
+	}
+}

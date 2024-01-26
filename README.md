@@ -17,12 +17,42 @@ Then, create a BitField and use its methods to manipulate bitfields:
 bf := bitfield.BigEndian.New(128)
 
 // Insert a 4-bit value at the 48th bit
-bf.InsertUint64(48, 4, 0b0111)
+err := bf.InsertUint64(48, 4, 0b0111)
+
+// Check for error
+if err != nil {
+  panic(err)
+}
 
 // Extract a 4-bit value from the 48th bit
-val, _ := bf.ExtractUint64(48, 4)
+val, err := bf.ExtractUint64(48, 4)
 
-// val == 7
+// Check for error
+if err != nil {
+  panic(err)
+}
+
+println(val) // 7
+```
+
+## Error Handling
+
+This library uses a fail-fast error handling strategy. If an error occurs during a _mutating_ method call, the error is stored (in addition to being returned) and subsequent _mutating_ method calls become no-ops that return the stored error. This allows you to perform a sequence of operations and then check the error once at the end.
+
+```go
+// Create a new BitField with a size of 32 bits
+bf := bitfield.BigEndian.New(32)
+
+// Insert many values
+bf.InsertUint64(0, 4, 0b1010)
+bf.InsertUint64(4, 4, 0b0000)
+// ...
+bf.InsertUint64(28, 4, 0b1010)
+
+// Check for error once
+if err := bf.Error(); err != nil {
+  panic(err)
+}
 ```
 
 ## Endianness
